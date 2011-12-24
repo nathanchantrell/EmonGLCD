@@ -13,8 +13,8 @@ Details of a simple remote temperature sensor node can be found here: http://zor
 emonGLCD_KS0108
 ----------------------
 This version uses the KS0108 parallel display. Details of my build using this screen can be found on my blog at
-http://zorg.org/yeg and a video of it in action can be found here: http://www.youtube.com/watch?v=OyOGha9BvNw
-The large digital font is available in this repository as Digital.h
+http://zorg.org/yeg
+The additional fonts used are available in this repository as Impact.h and Switzerland.h
 
 emonGLCD_LCD_09351
 ------------------

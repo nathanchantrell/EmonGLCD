@@ -16,7 +16,9 @@
 #include <RF12.h> // https://github.com/jcw/jeelib
 #include <glcd.h>  // GLCD-Arduino library http://code.google.com/p/glcd-arduino
 #include "fonts/SystemFont5x7.h"   // system font
-#include "fonts/Digital.h" // Digital font
+#include "fonts/Arial_bold_14.h"   // Arial Bold font
+#include "fonts/Switzerland.h" // Switzerland font
+#include "fonts/Impact.h" // Impact font
 
 // Fixed RF12 settings
 #define MYNODE 28            //node ID, 30 is reserved for base station
@@ -86,9 +88,9 @@ void setup () {
 
 void loop () 
 {
-  
+ 
  getReadings(); // get data from RFM12 and temp sensor
-
+ 
  showDisplay(); // display data
   
 } // end loop
@@ -96,51 +98,52 @@ void loop ()
 
   void showDisplay(){
   
-   GLCD.SelectFont(System5x7);
-   GLCD.GotoXY(0, 0);
-   GLCD.Puts("OpenEnergyMonitor");
-   GLCD.GotoXY(0, 19);
-   GLCD.Puts("Power:");
-   
    //print power value on GLCD
+    GLCD.SelectFont(Arial_bold_14);
+    GLCD.GotoXY(0, 7);
+    GLCD.Puts("Power:");
     cval2 = cval2 + (cval - cval2)*0.20; //smooth scroll of power reading
     itoa((int)cval2,str,10);
     strcat(str,"  W");
-    GLCD.SelectFont(Digital);
-    GLCD.GotoXY(40, 8);
+    GLCD.SelectFont(Switzerland);
+    GLCD.GotoXY(47, 2);
     GLCD.EraseTextLine();
     GLCD.Puts(str);
 
    //Room Temp
     GLCD.SelectFont(System5x7);
-    GLCD.GotoXY(0, 47);
-    GLCD.Puts("Room Temp: ");
+    GLCD.GotoXY(20, 35);
+    GLCD.Puts("Room");
     dtostrf(temp,0,1,str); 
     strcat(str,"C");
-    GLCD.GotoXY(62, 47);
-    GLCD.EraseTextLine();
+    GLCD.SelectFont(Impact);
+    GLCD.FillRect(0, 44, 67, 19, WHITE);
+    GLCD.GotoXY(7, 44);
     GLCD.Puts(str);
 
    //Outside Temp
-    GLCD.GotoXY(0, 57);
-    GLCD.Puts("Outside Temp:");
+    GLCD.SelectFont(System5x7);
+    GLCD.GotoXY(70, 35);
+    GLCD.Puts("Outside");
     dtostrf(temp1/100,0,1,str);
-    strcat(str,"C ");
-    GLCD.GotoXY(80, 57);
-    GLCD.EraseTextLine();
+    strcat(str,"C");
+    GLCD.SelectFont(Impact);
+    GLCD.FillRect(68, 44, 59, 19, WHITE);
+    GLCD.GotoXY(68, 44);
     GLCD.Puts(str);
   
    //last updated
+    GLCD.SelectFont(System5x7);
     int seconds = (int)((millis()-last)/1000.0);
     itoa(seconds,str,10);
-    GLCD.GotoXY(115, 0);
+    GLCD.GotoXY(115, 57);
     GLCD.EraseTextLine();
     GLCD.Puts(str);
-   
+  
    //draw power bar
-    GLCD.FillRect(0, 36, 127, 7, WHITE); //clear bar
-    GLCD.DrawRect(0, 36, 127, 7, BLACK);
-    GLCD.FillRect(0, 36, (cval*0.042), 7, BLACK); //bar fully black at 3Kw
+    GLCD.FillRect(0, 24, 127, 7, WHITE); //clear bar
+    GLCD.DrawRect(0, 24, 127, 7, BLACK);
+    GLCD.FillRect(0, 24, (cval*0.042), 7, BLACK); //bar fully black at 3Kw
    
   }
   
