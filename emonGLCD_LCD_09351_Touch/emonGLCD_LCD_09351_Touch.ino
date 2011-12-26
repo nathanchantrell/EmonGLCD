@@ -17,9 +17,9 @@
 
 #include <OneWire.h> // http://www.pjrc.com/teensy/arduino_libraries/OneWire.zip
 #include <DallasTemperature.h> // http://download.milesburton.com/Arduino/MaximTemperature/DallasTemperature_371Beta.zip
-#include <Ports.h> // https://github.com/jcw/jeelib
-#include <RF12.h> // https://github.com/jcw/jeelib
+#include <JeeLib.h> // https://github.com/jcw/jeelib
 #include <serialGLCD.h> // Include the serialGLCD library http://sourceforge.net/projects/serialglcdlib/
+                        // See serialGLCD_Library_Notes.txt for running under Arduino 1.0
 
 // Fixed RF12 settings
 #define MYNODE 26            //node ID, 30 is reserved for base station

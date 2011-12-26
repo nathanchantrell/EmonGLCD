@@ -15,9 +15,8 @@
 //------------------------------------------------------------------------------------------------------------------------
 
 #include <OneWire.h> // http://www.pjrc.com/teensy/arduino_libraries/OneWire.zip
-#include <DallasTemperature.h> // http://download.milesburton.com/Arduino/MaximTemperature/DallasTemperature_371Beta.zip
-#include <Ports.h> // https://github.com/jcw/jeelib
-#include <RF12.h> // https://github.com/jcw/jeelib
+#include <DallasTemperature.h> // http://download.milesburton.com/Arduino/MaximTemperature/DallasTemperature_372Beta.zip
+#include <JeeLib.h> // https://github.com/jcw/jeelib
 #include <Wire.h> // Wire library required for I2C for MCP79410 http://www.arduino.cc/en/Reference/Wire
 #include <GLCD_ST7565.h> // https://github.com/jcw/glcdlib
 #include "utility/font_clR4x6.h" // tiny font
@@ -112,17 +111,16 @@ void setup () {
 
 // Temporary method to manually set the time on the MCP79410
 // need to find better way to do this
-/*
+
   WriteRTCByte(0,0);       //STOP RTC
-  WriteRTCByte(1,0x58);    //MINUTE
+  WriteRTCByte(1,0x56);    //MINUTE
   WriteRTCByte(2,0x12);    //HOUR
-  WriteRTCByte(3,0x03);    //DAY=1(MONDAY) AND VBAT=1
-  WriteRTCByte(4,0x21);    //DATE
+  WriteRTCByte(3,0x01);    //DAY=1(MONDAY) AND VBAT=1
+  WriteRTCByte(4,0x26);    //DATE
   WriteRTCByte(5,0x12);    //MONTH
   WriteRTCByte(6,0x11);    //YEAR
   WriteRTCByte(0,0x80);    //START RTC, SECOND=00
   delay(100);
-*/
 
  rf12_initialize(MYNODE, freq,group); // Initialise the RFM12B
 
@@ -144,7 +142,7 @@ void setup () {
  analogWrite(greenPin, greenLEDValue);
  analogWrite(bluePin,  blueLEDValue);
 
- glcd.begin(); // initialise the display
+ glcd.begin(0x20); // initialise the display & set contrast
  
  menuOne(); // Show main menu on initial power up
 
@@ -556,18 +554,18 @@ void loop() {
   unsigned char ReadRTCByte(const unsigned char adr){
    unsigned char data;
    Wire.beginTransmission(0x6f);
-   Wire.send(adr);
+   Wire.write(adr);
    Wire.endTransmission();
    Wire.requestFrom(0x6f,1);
-   while (Wire.available()) data=Wire.receive();
+   while (Wire.available()) data=Wire.read();
    return data;
   }
 
  // Called to write bytes to RTC
   void WriteRTCByte(const unsigned char adr, const unsigned char data){
    Wire.beginTransmission(0x6f);
-   Wire.send(adr);
-   Wire.send(data);
+   Wire.write(adr);
+   Wire.write(data);
    Wire.endTransmission();
   } 
 

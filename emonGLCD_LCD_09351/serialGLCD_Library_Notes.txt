@@ -1,0 +1,8 @@
+A few minor changes are required to use Sabesto's serial GLCD library under Arduino 1.0:
+
+in serialGLCD.h and serialGLCD.cpp replace #include "WProgram.h" with #include "Arduino.h"
+
+in serialGLCD.cpp
+1. Change all the Serial.print statements to Serial.write and remove all occurences of ", BYTE"
+2. Under void serialGLCD::clearLCD() add (byte) as follows: Serial.write((byte)0x00);
+3. Under void serialGLCD::togglePixel add (byte) for both 0 values: Serial.write((byte)0);
