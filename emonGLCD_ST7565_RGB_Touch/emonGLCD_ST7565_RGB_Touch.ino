@@ -12,6 +12,7 @@
 //  Transmit room temperature reading via RF
 //  Backlight colour changes depending on power reading
 //  Supports MCP79410 RTC for time & date display
+//  Receive time from Nanode and set RTC
 //------------------------------------------------------------------------------------------------------------------------
 
 #include <OneWire.h> // http://www.pjrc.com/teensy/arduino_libraries/OneWire.zip
@@ -30,6 +31,7 @@
 #define group 210            //network group 
 #define emonTxNode 10        //node ID of the emonTX
 #define tempTxNode 11        //node ID of the tempTX
+#define Nanode 30            //node ID of the Nanode
 
 // DS18B20 Temperature sensor on pin D4
 #define ONE_WIRE_BUS 4      
@@ -70,12 +72,17 @@ GLCD_ST7565 glcd;
 //########################################################################################################################
 
 typedef struct {
-  	  int ct;		// current transformer
-	  int supplyV;		// emontx voltage
+  	  int rxD;		// temperature or current transformer
+	  int supplyV;		// tx voltage
 	} Payload;
-	Payload emontx;
+	Payload rxnode;
 
-int emontx_nodeID;    //node ID of emon tx, extracted from RF datapacket. Not transmitted as part of structure
+typedef struct {
+  	  int hour, mins, sec;  // time from Nanode
+	} PayloadNanode;
+	PayloadNanode nanode;
+
+int nodeID;    //node ID of emon tx, extracted from RF datapacket. Not transmitted as part of structure
 
 //########################################################################################################################
 //Data Structure to be sent
@@ -99,7 +106,9 @@ double temp1; // remote temp
 double cval; // ct reading from emonTX
 double cval2; // scrolling value for power display
 
-char str[50]; // general char array
+int hour, mins, sec; // time recevied from Nanode
+
+char str[10]; // general char array
 
 //DS18B20
 OneWire oneWire(ONE_WIRE_BUS);
@@ -108,19 +117,6 @@ DallasTemperature sensors(&oneWire);
 void setup () {
   
  Wire.begin(); // Initiate the Wire library so we can communicate with I2C devices (eg. MCP79410 RTC)
-
-// Temporary method to manually set the time on the MCP79410
-// need to find better way to do this
-
-  WriteRTCByte(0,0);       //STOP RTC
-  WriteRTCByte(1,0x56);    //MINUTE
-  WriteRTCByte(2,0x12);    //HOUR
-  WriteRTCByte(3,0x01);    //DAY=1(MONDAY) AND VBAT=1
-  WriteRTCByte(4,0x26);    //DATE
-  WriteRTCByte(5,0x12);    //MONTH
-  WriteRTCByte(6,0x11);    //YEAR
-  WriteRTCByte(0,0x80);    //START RTC, SECOND=00
-  delay(100);
 
  rf12_initialize(MYNODE, freq,group); // Initialise the RFM12B
 
@@ -145,7 +141,7 @@ void setup () {
  glcd.begin(0x20); // initialise the display & set contrast
  
  menuOne(); // Show main menu on initial power up
-
+ 
 }
 
 // Nintendo DS Touchscreen stuff
@@ -322,7 +318,7 @@ void loop() {
     cval2 = cval2 + (cval - cval2)*0.20; //smooth scroll of power reading
     itoa((int)cval2,str,10);
     strcat(str,"W");
-    glcd.drawString(67,00,str);
+    glcd.drawString(67,0,str);
     
    //print room temperature on GLCD 
     glcd.setFont(font_clR6x6); //use small font
@@ -331,7 +327,7 @@ void loop() {
     strcat(str,"C");
     glcd.setFont(font_helvB14); //use huge font
     glcd.drawString(5,37,str);
-        
+
    //print outside temperature on GLCD 
     glcd.setFont(font_clR6x6); //use small font
     glcd.drawString(72,30, "Outside");
@@ -356,7 +352,12 @@ void loop() {
    //draw power bar   
     glcd.drawRect(0, 20, 127, 7, BLACK);
     glcd.fillRect(0, 20, (cval*0.042), 7, BLACK); //bar fully black at 3Kw
-      
+
+   //cross power reading out if not updated in 60 seconds
+    if (seconds>60){
+    glcd.drawLine(67,16,126,0,BLACK);
+    }
+
   }
 
   void viewTwo(){ // large time and power readings
@@ -365,9 +366,9 @@ void loop() {
    glcd.setFont(font_helvB14); //use huge font
    (rtcTime()).toCharArray(str, 50);
    glcd.drawString(2,0,str);
-   glcd.setFont(font_clR6x8); //use large font
-   (rtcDate()).toCharArray(str, 50);
-   glcd.drawString(74,6,str);
+//   glcd.setFont(font_clR6x8); //use large font
+//   (rtcDate()).toCharArray(str, 50);
+//   glcd.drawString(74,6,str);
 
    //print power value on GLCD  
     glcd.setFont(font_helvB14); //use huge font
@@ -440,7 +441,7 @@ void loop() {
    //draw power bar
     glcd.drawRect(0, 29, 127, 7, BLACK);
     glcd.fillRect(0, 29, (cval*0.042), 7, BLACK); //bar fully black at 3Kw
- 
+    
   }
 
  void getReadings(){
@@ -448,20 +449,29 @@ void loop() {
  // 1) Receive data from RFM12
  //--------------------------------------------------------------------
     if (rf12_recvDone() && rf12_crc == 0 && (rf12_hdr & RF12_HDR_CTL) == 0) {
-        emontx=*(Payload*) rf12_data;   
-        emontx_nodeID = rf12_hdr & 0x1F;  // get node ID
-        last = millis();
-    }
+        nodeID = rf12_hdr & 0x1F;  // get node ID
 
  //--------------------------------------------------------------------------------------------------
  // 2) Which node did it come from?
  //--------------------------------------------------------------------------------------------------   
-      if (emontx_nodeID == emonTxNode){ // if node is emonTX
-        cval = emontx.ct;
-      } else     
-      if (emontx_nodeID == tempTxNode){   // If node is TempTx
-        temp1 = emontx.ct;
-      }   
+       if (nodeID == emonTxNode){ // if node is emonTX
+         rxnode=*(Payload*) rf12_data;   
+         cval = rxnode.rxD;
+         last = millis(); // reset last updated
+       } else     
+       if (nodeID == tempTxNode){   // If node is TempTx
+         rxnode=*(Payload*) rf12_data;   
+         temp1 = rxnode.rxD;
+       }   
+       if (nodeID == Nanode){   // If node is Nanode
+         nanode=*(PayloadNanode*) rf12_data;   
+         hour = nanode.hour;
+         mins = nanode.mins;
+         sec = nanode.sec;
+         setRTC(sec, mins, hour, 1, 1, 1, 12); // Currently only setting time
+       }   
+
+      }
   
  //--------------------------------------------------------------------
  // 3) get data from temp sensor every 10s
@@ -561,14 +571,6 @@ void loop() {
    return data;
   }
 
- // Called to write bytes to RTC
-  void WriteRTCByte(const unsigned char adr, const unsigned char data){
-   Wire.beginTransmission(0x6f);
-   Wire.write(adr);
-   Wire.write(data);
-   Wire.endTransmission();
-  } 
-
  // Return the time from RTC as a string in format hh:mm:ss
   String rtcTime() { 
    unsigned char data;
@@ -608,4 +610,32 @@ void loop() {
    rtcDate += "/";  
    rtcDate += String(year,HEX);
    return rtcDate;  
+  }
+  
+ // Set the RTC (from https://github.com/ichilton/mcp7941x_arduino )
+ void setRTC(
+  byte second, byte minute, byte hour, byte dayOfWeek, byte dayOfMonth, byte month, byte year)          // 0-99
+  {
+   Wire.beginTransmission(0x6f);
+   Wire.write((byte)0x00);
+   Wire.write(decToBcd(second) & 0x7f);     // set seconds and disable clock (01111111)
+   Wire.write(decToBcd(minute) & 0x7f);     // set minutes (01111111)
+   Wire.write(decToBcd(hour) & 0x3f);       // set hours and to 24hr clock (00111111)
+   Wire.write(decToBcd(dayOfWeek) & 0x0f);  // set the day and enable battery backup (00001111)
+   Wire.write(decToBcd(dayOfMonth) & 0x3f); // set the date in month (00111111)
+   Wire.write(decToBcd(month) & 0x1f);      // set the month (00011111)
+   Wire.write(decToBcd(year));              // set the year (11111111)
+   Wire.endTransmission();
+
+  // Start Clock:
+   Wire.beginTransmission(0x6f);
+   Wire.write((byte)0x00);
+   Wire.write(decToBcd(second) | 0x80);     // set seconds and enable clock (10000000)
+   Wire.endTransmission();
+  }
+
+ // Convert normal decimal numbers to binary coded decimal:
+  byte decToBcd(byte val)
+  {
+    return ( (val/10*16) + (val%10) );
   }
